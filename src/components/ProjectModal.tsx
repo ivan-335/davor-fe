@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Status, type Project } from '../types/Project';
-// import { Status as StatusCode } from '../types/Project';
+import type { User } from '../types/User';
 
 interface ProjectModalProps {
     initialData?: Project | null;
@@ -13,7 +13,7 @@ interface ProjectModalProps {
         description?: string;
         status: Status;
         deadline?: Date;
-        userId: string;
+        user: User | null;
         budget: string;
     }) => void;
     onClose: () => void;
@@ -32,8 +32,14 @@ const ProjectModal: FC<ProjectModalProps> = ({ initialData, onSave, onClose }) =
         initialData?.deadline ? new Date(initialData.deadline) : null
     );
     const [budget, setBudget] = useState(initialData?.budget || '');
+    const [userId, setUserId] = useState<string>(initialData?.user?._id ?? '');
+    const [users, setUsers] = useState<User[]>([]);
 
     useEffect(() => {
+        fetch('http://localhost:4000/api/users')
+            .then(res => res.json())
+            .then((data: User[]) => setUsers(data))
+            .catch(console.error);
         if (initialData) {
             setTitle(initialData.title);
             setDescription(initialData.description || '');
@@ -52,13 +58,13 @@ const ProjectModal: FC<ProjectModalProps> = ({ initialData, onSave, onClose }) =
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const payload = {
-            id: initialData?.id ?? '',
+            id: initialData?._id ?? '',
             title: title.trim(),
             description: description.trim(),
             status,
             deadline: deadline ?? undefined,
             budget,
-            userId: '',
+            user: users.find(user => user._id === userId) || null,
         }
         onSave(payload);
     };
@@ -123,6 +129,22 @@ const ProjectModal: FC<ProjectModalProps> = ({ initialData, onSave, onClose }) =
                             </select>
                         </div>
 
+                    </div>
+                    <div>
+                        <label className="block mb-1 text-sm font-medium">Owner</label>
+                        <select
+                            value={userId}
+                            onChange={e => setUserId(e.target.value)}
+                            className="w-full border rounded px-3 py-2"
+                            required
+                        >
+                            <option value="">— Select owner —</option>
+                            {Array.isArray(users) && users.map(u => (
+                                <option key={u._id} value={u._id}>
+                                    {u.email}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     <div>
                         <label className="block text-sm text-gray-500 font-medium mb-1" htmlFor="project-deadline">

@@ -1,3 +1,5 @@
+import type { User } from "./User";
+
 export const Status = {
     Active: 1,
     OnHold: 2,
@@ -8,7 +10,7 @@ export const Status = {
 export type Status = typeof Status[keyof typeof Status];
 export interface Project {
     _id: string;
-    userId: string;
+    user: User | null;
     description: string;
     title: string;
     deadline: Date;
