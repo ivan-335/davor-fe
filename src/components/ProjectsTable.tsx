@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, type JSX, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, type JSX } from 'react';
 import {
     createColumnHelper,
     useReactTable,
@@ -17,6 +17,11 @@ interface ProjectTableProps {
     data?: Project[];
     onEdit: (project: Project) => void;
     onDelete: (project: Project) => void;
+    searchValue: string;
+    onSearchChange: (newSearch: string) => void;
+    pageIndex: number;
+    onPageChange: (newPage: number) => void;
+    pageSize: number;
 }
 const columnHelper = createColumnHelper<Project>();
 function useDebounce<T>(value: T, delay: number): T {
@@ -30,7 +35,12 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function ProjectsTable({
     data = [],
     onEdit,
-    onDelete
+    onDelete,
+    searchValue,
+    onSearchChange,
+    pageIndex,
+    onPageChange,
+    pageSize,
 }: ProjectTableProps): JSX.Element {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState('');
@@ -40,8 +50,6 @@ export default function ProjectsTable({
         pageSize: 6,
     });
 
-    const memoizedOnDelete = useCallback(onDelete, [onDelete]);
-    const memoizedOnEdit = useCallback(onEdit, [onEdit]);
     const columns = useMemo(
         () => [
             columnHelper.accessor('title', {
@@ -51,6 +59,7 @@ export default function ProjectsTable({
                 enableColumnFilter: true,
             }),
             columnHelper.accessor('status', {
+                id: 'status',
                 header: 'Status',
                 cell: (info) => {
                     const code = info.getValue() as StatusCode;
@@ -83,10 +92,20 @@ export default function ProjectsTable({
                         </span>
                     );
                 },
+                enableSorting: false,
+                enableColumnFilter: true,
+                filterFn: 'equals',
+            }),
+
+            columnHelper.accessor('user', {
+                header: 'Owner',
+                cell: (info) => {
+                    const user = info.getValue() as { _id: string; email: string } | null;
+                    return user ? user.email : '—';
+                },
                 enableSorting: true,
                 enableColumnFilter: true,
             }),
-
             columnHelper.accessor('deadline', {
                 header: 'Deadline',
                 cell: (info) =>
@@ -102,7 +121,7 @@ export default function ProjectsTable({
                 enableColumnFilter: true,
             }),
             columnHelper.accessor('createdAt', {
-                header: 'Created At',
+                header: 'Created On',
                 cell: (info) =>
                     new Date(info.getValue()).toLocaleDateString(),
                 enableSorting: true,
@@ -113,13 +132,13 @@ export default function ProjectsTable({
                 cell: ({ row }) => (
                     <div className="flex gap-2 justify-center">
                         <button
-                            onClick={() => memoizedOnEdit(row.original)}
+                            onClick={() => onEdit(row.original)}
                             className="text-blue-600 hover:text-blue-800"
                         >
                             <FiEdit2 />
                         </button>
                         <button
-                            onClick={() => memoizedOnDelete(row.original)}
+                            onClick={() => onDelete(row.original)}
                             className="text-red-600 hover:text-red-800"
                         >
                             <FiTrash2 />
@@ -129,7 +148,7 @@ export default function ProjectsTable({
                 enableSorting: false,
             }),
         ],
-        [memoizedOnEdit, memoizedOnDelete]
+        [onEdit, onDelete]
     );
 
     const table = useReactTable({
@@ -139,7 +158,10 @@ export default function ProjectsTable({
             sorting,
             globalFilter,
             columnFilters,
-            pagination,
+            pagination: {
+                pageIndex: pageIndex - 1,
+                pageSize
+            },
         },
         onSortingChange: setSorting,
         onGlobalFilterChange: setGlobalFilter,
@@ -152,7 +174,7 @@ export default function ProjectsTable({
         globalFilterFn: 'includesString',
     });
     const [searchInput, setSearchInput] = useState<string>('');
-    const debouncedSearch = useDebounce<string>(searchInput, 300);
+    const debouncedSearch = useDebounce<string>(searchInput, 200);
 
     const tableRef = React.useRef<any>(null);
     useEffect(() => {
@@ -168,9 +190,10 @@ export default function ProjectsTable({
                 <input
                     type="text"
                     placeholder="Search by title..."
-                    value={searchInput}
+                    value={searchValue}
                     onChange={(e) => {
-                        setSearchInput(e.target.value)
+                        onSearchChange(e.target.value)
+                        setSearchInput(e.target.value);
                     }}
                     className="w-full border border-gray-300 rounded px-5 py-2 focus:outline-none focus:ring focus:border-green-300"
                 />
@@ -234,7 +257,7 @@ export default function ProjectsTable({
 
             <div className="m-6 flex items-center justify-between">
                 <button
-                    onClick={() => table.previousPage()}
+                    onClick={() => onPageChange(pageIndex - 1)}
                     disabled={!table.getCanPreviousPage()}
                     className={`px-4 py-2 rounded ${!table.getCanPreviousPage()
                         ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
@@ -250,7 +273,7 @@ export default function ProjectsTable({
                 </span>
 
                 <button
-                    onClick={() => table.nextPage()}
+                    onClick={() => onPageChange(pageIndex + 1)}
                     disabled={!table.getCanNextPage()}
                     className={`px-4 py-2 rounded ${!table.getCanNextPage()
                         ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
